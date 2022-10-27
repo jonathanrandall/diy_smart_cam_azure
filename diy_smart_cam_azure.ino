@@ -297,7 +297,7 @@ void classifyImage()
     
    
     String endpoint = "https://mycomputervision3.cognitiveservices.azure.com/";
-    String subscriptionKey = "ee678889e4534ee3bf766d4c2c45858f";
+    String subscriptionKey = "***";
     String uri = endpoint + "vision/v3.2/describe";//detect";
     Serial.println(uri);
 
