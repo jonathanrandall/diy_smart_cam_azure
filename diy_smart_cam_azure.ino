@@ -33,6 +33,9 @@
  * in file ssid_stuff.h
 const char* ssid = "WiFi";
 const char* password = "***";
+
+const char* ssid2 = "WiFi2";
+const char* password2 = "***2";
 */
 
 AsyncWebServer webserver(80);
@@ -59,7 +62,28 @@ String response;
 uint8_t pictureNumber;
 dl_matrix3du_t *rgb888_matrix = NULL;
 
-
+bool CheckPossibility(){
+ int n = WiFi.scanNetworks();
+  Serial.println("scan done");
+  if (n == 0)
+    Serial.println("no networks found");
+  else
+  {
+    Serial.print(n);
+    Serial.println(" networks found");
+    for (int i = 0; i < n; ++i)
+    {
+      Serial.print(String(ssid)+String(": "));
+      Serial.println(WiFi.SSID(i));
+      // Print SSID and RSSI for each network found
+      if(WiFi.SSID(i) == ssid){ //enter the ssid which you want to search
+      Serial.println("The network you are looking for is available");
+      return true;
+      }
+    }
+  }
+  return false;
+}
 bool init_wifi()
 {
   WiFi.begin(ssid, password);
@@ -143,7 +167,11 @@ void setup() {
     ESP.restart();
     SPIFFS.begin(true);// Formats SPIFFS - could lose data https://github.com/espressif/arduino-esp32/issues/638
   }
-  
+  if(!CheckPossibility()){
+    ssid = ssid2;
+    password = password2;
+    Serial.println("using second network");
+  }
   init_wifi();
   init_camera();
   EEPROM.begin(EEPROM_SIZE);
@@ -172,7 +200,8 @@ void setup() {
 //  tft.drawString(String(WiFi.localIP()).c_str(), 160, 180, GFXFF);
   tft.setCursor(50, 180, 2);
   tft.println(WiFi.localIP());
-  
+  tft.println(ssid);
+  Serial.println(ssid);
   tft.setTextColor(TFT_GREEN, TFT_BLACK);    tft.setTextFont(4);
   
   delay(1000);
@@ -297,7 +326,7 @@ void classifyImage()
     
    
     String endpoint = "https://mycomputervision3.cognitiveservices.azure.com/";
-    String subscriptionKey = "***";
+    String subscriptionKey = "*****";
     String uri = endpoint + "vision/v3.2/describe";//detect";
     Serial.println(uri);
 
@@ -386,6 +415,7 @@ void classifyImage()
 }
 
 void rgb_print(dl_matrix3du_t *image_matrix, uint32_t color, const char * str, int y){
+               
                fb_data_t fb;
                fb.width = image_matrix->w;
                fb.height = image_matrix->h;
@@ -393,7 +423,7 @@ void rgb_print(dl_matrix3du_t *image_matrix, uint32_t color, const char * str, i
                fb.bytes_per_pixel = 3;
                fb.format = FB_BGR888;
 //               fb_gfx_print(&fb, (fb.width - (strlen(str) * 14)) / 2, y, color, str);
-               fb_gfx_print(&fb, (2+ (strlen(str) * 4)) / 2, y, color, str);
+               fb_gfx_print(&fb, 2 /*(2+ (strlen(str) * 4)) / 2*/, y, color, str);
 }
 
 void print_to_image_and_tft(){
@@ -405,13 +435,13 @@ void print_to_image_and_tft(){
     const char *tags = doc["description"]["tags"][i++];
     if(tags==nullptr) break; // Serial.println("null charachter");
     tft.println(tags);
-    rgb_print(rgb888_matrix, 0x000000FF, tags, i*15 + 2);
+    rgb_print(rgb888_matrix, 0x000000FF, tags, i*15 - 12);
     if(i==5) break;
   }
   tft.setCursor(4, 220, 2);
   const char *text = doc["description"]["captions"][0]["text"];
   tft.print(text);
-  rgb_print(rgb888_matrix, 0x000000FF, text, fb->height-15);
+  rgb_print(rgb888_matrix, 0x000000FF, text, fb->height-50);
   
 }
 
@@ -444,15 +474,18 @@ void loop() {
   
     char *full_filename = (char*)malloc(23 + sizeof(pictureNumber));
     sprintf(full_filename, "/spiffs/selfie_f_%d.jpg", pictureNumber);
-  
+    delay(40);
     FILE *fullres = fopen(full_filename, "w");
      Serial.println(sizeof((fb->buf)[1]));
   //   tft.readRectRGB(0, 0, 320*240, 1, fb->buf);
+    delay(40);
     if (fullres != NULL)  {
       size_t err = fwrite(fb->buf, 1, fb->len, fullres);
       Serial.printf("File saved: %s\n", full_filename);
+//      tft.println("opened file");
     }  else  {
       Serial.println("Could not open file"); 
+      tft.println("Could not open file");
     }
     fclose(fullres);
   
@@ -465,36 +498,39 @@ void loop() {
     size_t _jpg_buf_len = 0;
     uint8_t * _jpg_buf = NULL;
 
- 
+    delay(20);
     bool jpeg_converted = fmt2jpg(rgb888_matrix->item, fb->width*fb->height*3, fb->width, fb->height, PIXFORMAT_RGB888, 80, &_jpg_buf, &_jpg_buf_len); //&fb->buf
     Serial.println("converted jpg");
     dl_matrix3du_free(rgb888_matrix);
-  
+    delay(20);
+    esp_camera_fb_return(fb);
+    fb = NULL;
+    delay(20);
     //more file stuff
   
     full_filename = (char*)malloc(23 + sizeof(pictureNumber));
     sprintf(full_filename, "/spiffs/selfie_t_%d.jpg", pictureNumber);
     fullres = fopen(full_filename, "w");
-
+    delay(20);
     if (fullres != NULL)  {
       size_t err = fwrite(_jpg_buf, 1, _jpg_buf_len, fullres);
       free(_jpg_buf);
       Serial.printf("File saved: %s\n", full_filename);
     }  else  {
       Serial.println("Could not open file"); 
+      tft.println("Could not open file 2");
     }
     fclose(fullres);
-    esp_camera_fb_return(fb);
-    fb = NULL;
+    
     free(full_filename);
   //  delay(5000);
-    delay(500);
+    delay(50);
     
     pictureNumber++;
     EEPROM.write(0, pictureNumber);
     EEPROM.commit();
 
-    ws.cleanupClients();
+//    ws.cleanupClients();
     } //if(!stream
 
   }//if(push_button_state
