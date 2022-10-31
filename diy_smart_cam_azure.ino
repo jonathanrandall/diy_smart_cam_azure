@@ -1,3 +1,6 @@
+//code for serving images is apdapted from https://robotzero.one/esp32-cam-tft-selfie/
+//
+
 #include "Arduino.h"
 #include "esp_camera.h"
 #include <WiFi.h>
@@ -29,6 +32,7 @@
 
 #define EEPROM_SIZE 1
 #define TEXT "starting app..."
+ssid = "jonnysiphone";
 /*
  * in file ssid_stuff.h
 const char* ssid = "WiFi";
